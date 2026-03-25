@@ -1,0 +1,280 @@
+'use client';
+
+import { useMemo } from 'react';
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, AlertTriangle, XCircle, BarChart3 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha } from '@/types';
+import { formatCurrency, formatMesAno } from '@/utils/formatters';
+import {
+  calcularTotalGasto,
+  calcularSaldoDisponivel,
+  calcularGastosPorCategoria,
+  calcularSaldoCaixinha,
+  calcularTotalPixEntradas,
+  calcularTotalPixSaidas,
+  calcularTotalFixosPagos,
+  calcularTotalVariaveis,
+  getLimiteValor,
+} from '@/utils/calculos';
+
+interface DashboardProps {
+  config: Config;
+  fixos: GastoFixo[];
+  variaveis: GastoVariavel[];
+  pix: LancamentoPix[];
+  caixinhaLancamentos: LancamentoCaixinha[];
+  historicoMeses?: { mes: string; total: number }[];
+}
+
+const COLORS = [
+  '#84cc16', '#22d3ee', '#f59e0b', '#ef4444', '#a855f7',
+  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#64748b',
+];
+
+export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLancamentos, historicoMeses }: DashboardProps) {
+  const totalGasto = calcularTotalGasto(fixos, variaveis, pix);
+  const saldoDisponivel = calcularSaldoDisponivel(config.salario, fixos, variaveis, pix);
+  const saldoCaixinha = calcularSaldoCaixinha(config.caixinhaBase, caixinhaLancamentos);
+  const saldoReal = saldoDisponivel + saldoCaixinha;
+  const percentualGasto = config.salario > 0 ? (totalGasto / config.salario) * 100 : 0;
+  const entradasPix = calcularTotalPixEntradas(pix);
+  const saidasPix = calcularTotalPixSaidas(pix);
+  const totalFixosPagos = calcularTotalFixosPagos(fixos);
+  const totalVariaveis = calcularTotalVariaveis(variaveis);
+
+  const gastosPorCategoria = useMemo(
+    () => calcularGastosPorCategoria(fixos, variaveis, pix),
+    [fixos, variaveis, pix]
+  );
+
+  const pieData = useMemo(() => {
+    return Object.entries(gastosPorCategoria)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [gastosPorCategoria]);
+
+  const barData = useMemo(() => {
+    return (historicoMeses || []).map(h => ({
+      name: formatMesAno(h.mes).split(' ')[0].substring(0, 3),
+      total: h.total,
+    }));
+  }, [historicoMeses]);
+
+  const getBarraColor = () => {
+    if (percentualGasto >= 100) return 'bg-red-500';
+    if (percentualGasto >= 80) return 'bg-yellow-500';
+    return 'bg-accent';
+  };
+
+  const categoriasComLimite = useMemo(() => {
+    return Object.entries(config.limites).map(([cat, limite]) => {
+      const gasto = gastosPorCategoria[cat] || 0;
+      const limiteVal = getLimiteValor(limite, config.salario);
+      const pct = limiteVal > 0 ? (gasto / limiteVal) * 100 : 0;
+      return { categoria: cat, gasto, limite: limiteVal, percentual: pct };
+    });
+  }, [config.limites, config.salario, gastosPorCategoria]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-2">
+        <BarChart3 className="text-accent" size={24} />
+        <h2 className="text-xl font-bold text-white">Dashboard — {formatMesAno(config.mesAtual)}</h2>
+      </div>
+
+      {/* Main cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-surface rounded-xl border border-border p-5">
+          <div className="flex items-center gap-2 text-zinc-400 mb-2">
+            <Wallet size={18} /> Salario
+          </div>
+          <p className="text-2xl font-bold text-white">{formatCurrency(config.salario)}</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-5">
+          <div className="flex items-center gap-2 text-red-400 mb-2">
+            <TrendingDown size={18} /> Total Gasto
+          </div>
+          <p className="text-2xl font-bold text-red-400">{formatCurrency(totalGasto)}</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-5">
+          <div className="flex items-center gap-2 text-green-400 mb-2">
+            <TrendingUp size={18} /> Saldo Disponivel
+          </div>
+          <p className={`text-2xl font-bold ${saldoDisponivel >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {formatCurrency(saldoDisponivel)}
+          </p>
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-5">
+          <div className="flex items-center gap-2 text-accent mb-2">
+            <PiggyBank size={18} /> Saldo Real
+          </div>
+          <p className={`text-2xl font-bold ${saldoReal >= 0 ? 'text-accent' : 'text-red-400'}`}>
+            {formatCurrency(saldoReal)}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">Inclui caixinha</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="bg-surface rounded-xl border border-border p-5">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-zinc-400">Progresso do salario</span>
+          <span className={`font-bold text-lg ${percentualGasto >= 100 ? 'text-red-400' : percentualGasto >= 80 ? 'text-yellow-400' : 'text-accent'}`}>
+            {percentualGasto.toFixed(1)}%
+          </span>
+        </div>
+        <div className="w-full h-4 bg-surface-lighter rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${getBarraColor()}`}
+            style={{ width: `${Math.min(percentualGasto, 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-sm text-zinc-500 mt-2">
+          <span>Gasto: {formatCurrency(totalGasto)}</span>
+          <span>Limite: {formatCurrency(config.salario)}</span>
+        </div>
+      </div>
+
+      {/* Detalhes do gasto */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
+          <p className="text-xs text-zinc-500 mb-1">Fixos (pagos)</p>
+          <p className="text-white font-semibold">{formatCurrency(totalFixosPagos)}</p>
+        </div>
+        <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
+          <p className="text-xs text-zinc-500 mb-1">Variaveis</p>
+          <p className="text-white font-semibold">{formatCurrency(totalVariaveis)}</p>
+        </div>
+        <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
+          <p className="text-xs text-zinc-500 mb-1">PIX Saidas</p>
+          <p className="text-white font-semibold">{formatCurrency(saidasPix)}</p>
+        </div>
+        <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
+          <p className="text-xs text-zinc-500 mb-1">PIX Entradas</p>
+          <p className="text-green-400 font-semibold">+{formatCurrency(entradasPix)}</p>
+        </div>
+      </div>
+
+      {/* Alertas de limite */}
+      {categoriasComLimite.filter(c => c.percentual >= 80).length > 0 && (
+        <div className="space-y-2">
+          {categoriasComLimite.filter(c => c.percentual >= 100).map(c => (
+            <div key={c.categoria} className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              <XCircle size={18} className="text-red-400 shrink-0" />
+              <span className="text-red-300 text-sm">
+                <strong>{c.categoria}</strong>: Limite atingido! {formatCurrency(c.gasto)} de {formatCurrency(c.limite)}
+              </span>
+            </div>
+          ))}
+          {categoriasComLimite.filter(c => c.percentual >= 80 && c.percentual < 100).map(c => (
+            <div key={c.categoria} className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+              <AlertTriangle size={18} className="text-yellow-400 shrink-0" />
+              <span className="text-yellow-300 text-sm">
+                <strong>{c.categoria}</strong>: Atencao! {formatCurrency(c.gasto)} de {formatCurrency(c.limite)} ({c.percentual.toFixed(0)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mini cards por categoria com barra */}
+      {categoriasComLimite.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {categoriasComLimite.map(c => (
+            <div key={c.categoria} className="bg-surface rounded-xl border border-border p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-white font-medium">{c.categoria}</span>
+                <span className="text-sm text-zinc-400">
+                  {formatCurrency(c.gasto)} / {formatCurrency(c.limite)}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-surface-lighter rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    c.percentual >= 100 ? 'bg-red-500' : c.percentual >= 80 ? 'bg-yellow-500' : 'bg-accent'
+                  }`}
+                  style={{ width: `${Math.min(c.percentual, 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pie chart */}
+        {pieData.length > 0 && (
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <h3 className="font-semibold text-white mb-4">Gastos por Categoria</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {pieData.map((entry, i) => (
+                <div key={entry.name} className="flex items-center gap-1.5 text-sm text-zinc-400">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  {entry.name}: {formatCurrency(entry.value)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bar chart */}
+        {barData.length > 1 && (
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <h3 className="font-semibold text-white mb-4">Comparativo Mensal</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <XAxis dataKey="name" stroke="#71717a" />
+                  <YAxis stroke="#71717a" tickFormatter={(v) => `R$${v}`} />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
+                  />
+                  <Bar dataKey="total" fill="#84cc16" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Caixinha card */}
+        <div className="bg-surface rounded-xl border border-border p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <PiggyBank size={20} className="text-accent" />
+            <h3 className="font-semibold text-white">Caixinha do Nathan</h3>
+          </div>
+          <p className="text-3xl font-bold text-accent mb-2">{formatCurrency(saldoCaixinha)}</p>
+          <div className="flex gap-4 text-sm">
+            <span className="text-green-400">+{formatCurrency(caixinhaLancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0))} entradas</span>
+            <span className="text-red-400">-{formatCurrency(caixinhaLancamentos.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0))} saidas</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

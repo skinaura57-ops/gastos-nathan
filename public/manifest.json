@@ -1,0 +1,9 @@
+{
+  "name": "Gastos do Nathan",
+  "short_name": "Gastos Nathan",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0f0f1a",
+  "description": "Painel de controle financeiro pessoal"
+}
