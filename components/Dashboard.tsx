@@ -9,10 +9,11 @@ import {
   calcularTotalGasto,
   calcularSaldoDisponivel,
   calcularGastosPorCategoria,
+  calcularGastosPorFormaPagamento,
   calcularSaldoCaixinha,
   calcularTotalPixEntradas,
   calcularTotalPixSaidas,
-  calcularTotalFixosPagos,
+  calcularTotalFixos,
   calcularTotalVariaveis,
   getLimiteValor,
 } from '@/utils/calculos';
@@ -39,11 +40,16 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
   const percentualGasto = config.salario > 0 ? (totalGasto / config.salario) * 100 : 0;
   const entradasPix = calcularTotalPixEntradas(pix);
   const saidasPix = calcularTotalPixSaidas(pix);
-  const totalFixosPagos = calcularTotalFixosPagos(fixos);
+  const totalFixos = calcularTotalFixos(fixos);
   const totalVariaveis = calcularTotalVariaveis(variaveis);
 
   const gastosPorCategoria = useMemo(
     () => calcularGastosPorCategoria(fixos, variaveis, pix),
+    [fixos, variaveis, pix]
+  );
+
+  const gastosPorForma = useMemo(
+    () => calcularGastosPorFormaPagamento(fixos, variaveis, pix),
     [fixos, variaveis, pix]
   );
 
@@ -52,6 +58,19 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [gastosPorCategoria]);
+
+  const formaPagamentoData = useMemo(() => {
+    return Object.entries(gastosPorForma)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [gastosPorForma]);
+
+  const FORMA_COLORS: Record<string, string> = {
+    'Credito': '#a855f7',
+    'Debito': '#22d3ee',
+    'PIX': '#84cc16',
+    'Dinheiro': '#f59e0b',
+  };
 
   const barData = useMemo(() => {
     return (historicoMeses || []).map(h => ({
@@ -138,8 +157,8 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
       {/* Detalhes do gasto */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
-          <p className="text-xs text-zinc-500 mb-1">Fixos (pagos)</p>
-          <p className="text-white font-semibold">{formatCurrency(totalFixosPagos)}</p>
+          <p className="text-xs text-zinc-500 mb-1">Fixos</p>
+          <p className="text-white font-semibold">{formatCurrency(totalFixos)}</p>
         </div>
         <div className="bg-surface rounded-lg border border-border/50 p-3 text-center">
           <p className="text-xs text-zinc-500 mb-1">Variaveis</p>
@@ -279,6 +298,66 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
                   <Bar dataKey="total" fill="#84cc16" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Donut chart - Forma de Pagamento */}
+        {formaPagamentoData.length > 0 && (
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <h3 className="font-semibold text-white mb-4">Forma de Pagamento</h3>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="h-48 w-48 shrink-0 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={formaPagamentoData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={72}
+                      dataKey="value"
+                      stroke="none"
+                      paddingAngle={4}
+                    >
+                      {formaPagamentoData.map((entry) => (
+                        <Cell key={entry.name} fill={FORMA_COLORS[entry.name] || '#64748b'} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[10px] text-zinc-500">Total</span>
+                  <span className="text-sm font-bold text-white">{formatCurrency(totalGasto)}</span>
+                </div>
+              </div>
+              <div className="flex-1 space-y-3 w-full">
+                {formaPagamentoData.map((entry) => {
+                  const pct = totalGasto > 0 ? (entry.value / totalGasto) * 100 : 0;
+                  return (
+                    <div key={entry.name} className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: FORMA_COLORS[entry.name] || '#64748b' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-zinc-300">{entry.name}</span>
+                          <span className="text-sm font-semibold text-white ml-2">{pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-surface-lighter rounded-full mt-1 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pct}%`, backgroundColor: FORMA_COLORS[entry.name] || '#64748b' }}
+                          />
+                        </div>
+                        <span className="text-xs text-zinc-500">{formatCurrency(entry.value)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

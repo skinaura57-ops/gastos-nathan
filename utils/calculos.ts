@@ -31,7 +31,7 @@ export function calcularTotalGasto(
   variaveis: GastoVariavel[],
   pix: LancamentoPix[]
 ): number {
-  return calcularTotalFixosPagos(fixos) + calcularTotalVariaveis(variaveis) + calcularTotalPixSaidas(pix);
+  return calcularTotalFixos(fixos) + calcularTotalVariaveis(variaveis) + calcularTotalPixSaidas(pix);
 }
 
 export function calcularSaldoDisponivel(
@@ -52,7 +52,7 @@ export function calcularGastosPorCategoria(
 ): Record<string, number> {
   const porCategoria: Record<string, number> = {};
 
-  fixos.filter(f => f.pago && f.ativo).forEach(f => {
+  fixos.filter(f => f.ativo).forEach(f => {
     porCategoria[f.categoria] = (porCategoria[f.categoria] || 0) + f.valor;
   });
 
@@ -65,6 +65,30 @@ export function calcularGastosPorCategoria(
   });
 
   return porCategoria;
+}
+
+export function calcularGastosPorFormaPagamento(
+  fixos: GastoFixo[],
+  variaveis: GastoVariavel[],
+  pix: LancamentoPix[]
+): Record<string, number> {
+  const porForma: Record<string, number> = {};
+
+  fixos.filter(f => f.ativo).forEach(f => {
+    const label = f.formaPagamento === 'credito' ? 'Credito' : f.formaPagamento === 'debito' ? 'Debito' : f.formaPagamento === 'pix' ? 'PIX' : 'Dinheiro';
+    porForma[label] = (porForma[label] || 0) + f.valor;
+  });
+
+  variaveis.forEach(g => {
+    const label = g.formaPagamento === 'credito' ? 'Credito' : g.formaPagamento === 'debito' ? 'Debito' : g.formaPagamento === 'pix' ? 'PIX' : 'Dinheiro';
+    porForma[label] = (porForma[label] || 0) + g.valor;
+  });
+
+  pix.filter(p => p.tipo === 'saida').forEach(p => {
+    porForma['PIX'] = (porForma['PIX'] || 0) + p.valor;
+  });
+
+  return porForma;
 }
 
 export function calcularPercentualLimite(
