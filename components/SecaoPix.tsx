@@ -2,18 +2,21 @@
 
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, ArrowDownLeft, ArrowUpRight, Repeat } from 'lucide-react';
-import { LancamentoPix, CATEGORIAS } from '@/types';
+import { LancamentoPix, LancamentoCaixinha, CATEGORIAS } from '@/types';
 import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
+import BancoSelector, { BancoBadge } from './BancoSelector';
 import { toast } from 'sonner';
 
 interface SecaoPixProps {
   pix: LancamentoPix[];
   setPix: (p: LancamentoPix[] | ((prev: LancamentoPix[]) => LancamentoPix[])) => void;
+  caixinhaLancamentos: LancamentoCaixinha[];
+  setCaixinhaLancamentos: (l: LancamentoCaixinha[] | ((prev: LancamentoCaixinha[]) => LancamentoCaixinha[])) => void;
 }
 
-export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
+export default function SecaoPix({ pix, setPix, caixinhaLancamentos, setCaixinhaLancamentos }: SecaoPixProps) {
   const [subTab, setSubTab] = useState<'entrada' | 'saida'>('entrada');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -24,6 +27,7 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
     valor: 0,
     data: new Date().toISOString().split('T')[0],
     contraparte: '',
+    banco: '',
     categoria: 'Outros',
   });
   const [valorInput, setValorInput] = useState('');
@@ -42,6 +46,7 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
       valor: 0,
       data: new Date().toISOString().split('T')[0],
       contraparte: '',
+      banco: '',
       categoria: 'Outros',
     });
     setValorInput('');
@@ -56,6 +61,7 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
       valor: p.valor,
       data: p.data,
       contraparte: p.contraparte,
+      banco: p.banco || '',
       categoria: p.categoria || 'Outros',
     });
     setValorInput(p.valor.toString());
@@ -75,6 +81,7 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
       valor,
       data: form.data,
       contraparte: form.contraparte,
+      banco: form.banco || undefined,
       categoria: form.tipo === 'saida' ? form.categoria : undefined,
     };
 
@@ -83,7 +90,31 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
       toast.success('PIX atualizado!');
     } else {
       setPix(prev => [...prev, entry]);
-      toast.success('PIX registrado!');
+
+      // Integrar com caixinha automaticamente
+      if (form.tipo === 'entrada') {
+        setCaixinhaLancamentos(prev => [...prev, {
+          id: generateId(),
+          tipo: 'entrada',
+          descricao: `PIX recebido: ${form.descricao}`,
+          valor,
+          data: form.data,
+          banco: form.banco || undefined,
+          observacao: `De ${form.contraparte}`,
+        }]);
+        toast.success('PIX recebido e adicionado na caixinha!');
+      } else {
+        setCaixinhaLancamentos(prev => [...prev, {
+          id: generateId(),
+          tipo: 'saida',
+          descricao: `PIX enviado: ${form.descricao}`,
+          valor,
+          data: form.data,
+          banco: form.banco || undefined,
+          observacao: `Para ${form.contraparte}`,
+        }]);
+        toast.success('PIX enviado e descontado da caixinha!');
+      }
     }
     setModalOpen(false);
   };
@@ -165,10 +196,16 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
                   )}
                   <span className="text-white font-medium">{p.descricao}</span>
                 </div>
-                <div className="flex flex-wrap gap-2 text-sm text-zinc-400">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
                   <span>{formatDate(p.data)}</span>
                   <span>•</span>
                   <span>{p.tipo === 'entrada' ? 'De' : 'Para'}: {p.contraparte}</span>
+                  {p.banco && (
+                    <>
+                      <span>•</span>
+                      <BancoBadge bancoNome={p.banco} size="sm" />
+                    </>
+                  )}
                   {p.categoria && (
                     <>
                       <span>•</span>
@@ -258,6 +295,11 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
               placeholder={form.tipo === 'entrada' ? 'Pedro Silva' : 'Imobiliaria XYZ'}
             />
           </div>
+          <BancoSelector
+            label="Banco"
+            value={form.banco}
+            onChange={(banco) => setForm(prev => ({ ...prev, banco }))}
+          />
           {form.tipo === 'saida' && (
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">Categoria</label>
@@ -268,6 +310,13 @@ export default function SecaoPix({ pix, setPix }: SecaoPixProps) {
               >
                 {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+            </div>
+          )}
+          {!editId && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300">
+              {form.tipo === 'entrada'
+                ? 'PIX recebido sera adicionado automaticamente na caixinha'
+                : 'PIX enviado sera descontado automaticamente da caixinha'}
             </div>
           )}
           <button

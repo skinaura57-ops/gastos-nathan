@@ -13,7 +13,6 @@ import SecaoPix from '@/components/SecaoPix';
 import Caixinha from '@/components/Caixinha';
 import ValoresReceber from '@/components/ValoresReceber';
 import Configuracoes from '@/components/Configuracoes';
-import Notificacoes from '@/components/Notificacoes';
 import Modal from '@/components/Modal';
 import BancoSelector from '@/components/BancoSelector';
 import { CATEGORIAS, FORMAS_PAGAMENTO } from '@/types';
@@ -265,15 +264,6 @@ export default function Home() {
         )}
       </header>
 
-      {/* Notificacoes ao abrir */}
-      <Notificacoes
-        config={config}
-        fixos={fixos}
-        variaveis={variaveis}
-        pix={pix}
-        valoresReceber={valoresReceber}
-      />
-
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6 pb-24">
         {activeTab === 'dashboard' && (
@@ -304,7 +294,12 @@ export default function Home() {
           />
         )}
         {activeTab === 'pix' && (
-          <SecaoPix pix={pix} setPix={setPix} />
+          <SecaoPix
+            pix={pix}
+            setPix={setPix}
+            caixinhaLancamentos={caixinhaLancamentos}
+            setCaixinhaLancamentos={setCaixinhaLancamentos}
+          />
         )}
         {activeTab === 'receber' && (
           <ValoresReceber valores={valoresReceber} setValores={setValoresReceber} />

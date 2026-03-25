@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, ShoppingCart, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ShoppingCart, Filter, Check, Clock } from 'lucide-react';
 import { GastoVariavel, CATEGORIAS, FORMAS_PAGAMENTO, BANCOS } from '@/types';
 import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import Modal from './Modal';
@@ -120,6 +120,10 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
     toast.success('Gasto excluido!');
   };
 
+  const togglePago = (id: string) => {
+    setVariaveis(prev => prev.map(g => g.id === id ? { ...g, pago: !g.pago } : g));
+  };
+
   const bancosList = useMemo(() => {
     const bancos = new Set(variaveis.map(g => g.banco).filter(Boolean));
     return Array.from(bancos);
@@ -143,6 +147,8 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
   }, [variaveis]);
 
   const totalFiltrado = filteredVariaveis.reduce((s, g) => s + g.valor, 0);
+  const totalPagos = variaveis.filter(g => g.pago).reduce((s, g) => s + g.valor, 0);
+  const totalPendentes = variaveis.filter(g => !g.pago).reduce((s, g) => s + g.valor, 0);
 
   return (
     <div>
@@ -223,16 +229,26 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
           {/* Mobile cards */}
           <div className="sm:hidden space-y-3">
             {filteredVariaveis.map(g => (
-              <div key={g.id} className="bg-surface rounded-xl border border-border p-4">
+              <div key={g.id} className={`bg-surface rounded-xl border border-border p-4 ${g.pago ? 'opacity-60' : ''}`}>
                 <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-white font-medium">{g.descricao}</p>
-                      {g.parcelas && g.parcelas > 1 && (
-                        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-semibold">{g.parcelaAtual}/{g.parcelas}</span>
-                      )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => togglePago(g.id)}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                        g.pago ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {g.pago ? <Check size={14} /> : <Clock size={14} />}
+                    </button>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className={`font-medium ${g.pago ? 'text-zinc-400 line-through' : 'text-white'}`}>{g.descricao}</p>
+                        {g.parcelas && g.parcelas > 1 && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-semibold">{g.parcelaAtual}/{g.parcelas}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-zinc-400">{formatDate(g.data)}</p>
                     </div>
-                    <p className="text-sm text-zinc-400">{formatDate(g.data)}</p>
                   </div>
                   <p className="text-white font-semibold">{formatCurrency(g.valor)}</p>
                 </div>
@@ -255,6 +271,7 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
             <table className="w-full">
               <thead>
                 <tr className="text-left text-sm text-zinc-400 border-b border-border">
+                  <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3 pr-4">Data</th>
                   <th className="pb-3 pr-4">Descricao</th>
                   <th className="pb-3 pr-4">Categoria</th>
@@ -266,7 +283,17 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
               </thead>
               <tbody>
                 {filteredVariaveis.map(g => (
-                  <tr key={g.id} className="border-b border-border/50">
+                  <tr key={g.id} className={`border-b border-border/50 ${g.pago ? 'opacity-60' : ''}`}>
+                    <td className="py-3 pr-4">
+                      <button
+                        onClick={() => togglePago(g.id)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          g.pago ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}
+                      >
+                        {g.pago ? <Check size={16} /> : <Clock size={16} />}
+                      </button>
+                    </td>
                     <td className="py-3 pr-4 text-zinc-400 text-sm">{formatDate(g.data)}</td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
@@ -301,11 +328,19 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
 
           {/* Totais */}
           <div className="mt-4 space-y-3">
-            <div className="bg-surface-light rounded-lg px-4 py-2 inline-block">
-              Total: <span className="text-white font-semibold">{formatCurrency(totalFiltrado)}</span>
-              {(filtroCategoria || filtroBanco || busca) && (
-                <span className="text-zinc-500 ml-2">(filtrado)</span>
-              )}
+            <div className="flex flex-wrap gap-3">
+              <div className="bg-surface-light rounded-lg px-4 py-2">
+                Total: <span className="text-white font-semibold">{formatCurrency(totalFiltrado)}</span>
+                {(filtroCategoria || filtroBanco || busca) && (
+                  <span className="text-zinc-500 ml-2">(filtrado)</span>
+                )}
+              </div>
+              <div className="bg-surface-light rounded-lg px-4 py-2">
+                Pagos: <span className="text-green-400 font-semibold">{formatCurrency(totalPagos)}</span>
+              </div>
+              <div className="bg-surface-light rounded-lg px-4 py-2">
+                Pendentes: <span className="text-red-400 font-semibold">{formatCurrency(totalPendentes)}</span>
+              </div>
             </div>
             {Object.keys(totalPorCategoria).length > 0 && (
               <div className="flex flex-wrap gap-2">

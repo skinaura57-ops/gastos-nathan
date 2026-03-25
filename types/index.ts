@@ -34,6 +34,7 @@ export interface GastoVariavel {
   parcelas?: number;
   parcelaAtual?: number;
   parcelaGroupId?: string;
+  pago?: boolean;
   observacao?: string;
 }
 
@@ -44,6 +45,7 @@ export interface LancamentoPix {
   valor: number;
   data: string;
   contraparte: string;
+  banco?: string;
   categoria?: string;
 }
 

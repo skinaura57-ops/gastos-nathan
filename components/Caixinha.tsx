@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, PiggyBank, TrendingUp, TrendingDown } from 'lucide-react';
-import { LancamentoCaixinha } from '@/types';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { LancamentoCaixinha, BANCOS } from '@/types';
 import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import { calcularSaldoCaixinha } from '@/utils/calculos';
 import Modal from './Modal';
@@ -33,6 +34,29 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
   const saldoAtual = calcularSaldoCaixinha(caixinhaBase, lancamentos);
   const totalEntradas = lancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0);
   const totalSaidas = lancamentos.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0);
+
+  // Calcular saldo por banco: entradas - saidas por banco
+  const saldoPorBanco = useMemo(() => {
+    const porBanco: Record<string, number> = {};
+    // Saldo base sem banco definido
+    if (caixinhaBase > 0) {
+      porBanco['Sem banco'] = caixinhaBase;
+    }
+    lancamentos.forEach(l => {
+      const banco = l.banco || 'Sem banco';
+      if (!porBanco[banco]) porBanco[banco] = 0;
+      porBanco[banco] += l.tipo === 'entrada' ? l.valor : -l.valor;
+    });
+    // Filtrar bancos com saldo > 0
+    return Object.entries(porBanco)
+      .filter(([, val]) => val > 0)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [lancamentos, caixinhaBase]);
+
+  const BANCO_COLORS: Record<string, string> = {};
+  BANCOS.forEach(b => { BANCO_COLORS[b.nome] = b.cor; });
+  BANCO_COLORS['Sem banco'] = '#64748b';
 
   const openNew = () => {
     setEditId(null);
@@ -106,6 +130,66 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
           <p className="text-2xl font-bold text-red-400">{formatCurrency(totalSaidas)}</p>
         </div>
       </div>
+
+      {/* Grafico por banco */}
+      {saldoPorBanco.length > 0 && (
+        <div className="bg-surface rounded-xl border border-border p-5 mb-6">
+          <h3 className="font-semibold text-white mb-4">Distribuicao por Banco</h3>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="h-48 w-48 shrink-0 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={saldoPorBanco}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={72}
+                    dataKey="value"
+                    stroke="none"
+                    paddingAngle={4}
+                  >
+                    {saldoPorBanco.map((entry) => (
+                      <Cell key={entry.name} fill={BANCO_COLORS[entry.name] || '#64748b'} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] text-zinc-500">Total</span>
+                <span className="text-sm font-bold text-accent">{formatCurrency(saldoAtual)}</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-3 w-full">
+              {saldoPorBanco.map((entry) => {
+                const pct = saldoAtual > 0 ? (entry.value / saldoAtual) * 100 : 0;
+                return (
+                  <div key={entry.name} className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: BANCO_COLORS[entry.name] || '#64748b' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-zinc-300">{entry.name}</span>
+                        <span className="text-sm font-semibold text-white ml-2">{pct.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-surface-lighter rounded-full mt-1 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, backgroundColor: BANCO_COLORS[entry.name] || '#64748b' }}
+                        />
+                      </div>
+                      <span className="text-xs text-zinc-500">{formatCurrency(entry.value)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-white">Historico</h3>
