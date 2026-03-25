@@ -52,6 +52,15 @@ export interface LancamentoCaixinha {
   observacao?: string;
 }
 
+export interface ValorAReceber {
+  id: string;
+  nome: string;
+  valor: number;
+  descricao: string;
+  data: string;
+  recebido: boolean;
+}
+
 export const CATEGORIAS = [
   'Alimentacao',
   'Delivery',

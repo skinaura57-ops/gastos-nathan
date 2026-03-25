@@ -203,41 +203,62 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pie chart */}
+        {/* Donut chart */}
         {pieData.length > 0 && (
           <div className="bg-surface rounded-xl border border-border p-5">
-            <h3 className="font-semibold text-white mb-4">Gastos por Categoria</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {pieData.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {pieData.map((entry, i) => (
-                <div key={entry.name} className="flex items-center gap-1.5 text-sm text-zinc-400">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  {entry.name}: {formatCurrency(entry.value)}
+            <h3 className="font-semibold text-white mb-4">Distribuicao dos Gastos</h3>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="h-56 w-56 shrink-0 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      dataKey="value"
+                      stroke="none"
+                      paddingAngle={3}
+                    >
+                      {pieData.map((_, index) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ background: '#2a2a3e', border: '1px solid #3a3a5c', borderRadius: '8px', color: '#e4e4e7' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xs text-zinc-500">Total</span>
+                  <span className="text-lg font-bold text-white">{formatCurrency(totalGasto)}</span>
                 </div>
-              ))}
+              </div>
+              <div className="flex-1 space-y-2 w-full">
+                {pieData.map((entry, i) => {
+                  const pct = totalGasto > 0 ? (entry.value / totalGasto) * 100 : 0;
+                  return (
+                    <div key={entry.name} className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-zinc-300 truncate">{entry.name}</span>
+                          <span className="text-sm font-semibold text-white ml-2">{pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-surface-lighter rounded-full mt-1 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                          />
+                        </div>
+                        <span className="text-xs text-zinc-500">{formatCurrency(entry.value)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

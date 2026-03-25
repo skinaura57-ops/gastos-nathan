@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, BarChart3, CalendarDays, ShoppingCart, Repeat, PiggyBank, Settings, Menu, X } from 'lucide-react';
+import { Plus, BarChart3, CalendarDays, ShoppingCart, Repeat, PiggyBank, Settings, Menu, X, Users } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha } from '@/types';
+import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha, ValorAReceber } from '@/types';
 import { getMesAtual, formatMesAno } from '@/utils/formatters';
 import { calcularTotalGasto } from '@/utils/calculos';
 import Dashboard from '@/components/Dashboard';
@@ -11,20 +11,23 @@ import GastosFixos from '@/components/GastosFixos';
 import GastosVariaveis from '@/components/GastosVariaveis';
 import SecaoPix from '@/components/SecaoPix';
 import Caixinha from '@/components/Caixinha';
+import ValoresReceber from '@/components/ValoresReceber';
 import Configuracoes from '@/components/Configuracoes';
+import Notificacoes from '@/components/Notificacoes';
 import Modal from '@/components/Modal';
 import BancoSelector from '@/components/BancoSelector';
 import { CATEGORIAS, FORMAS_PAGAMENTO } from '@/types';
 import { generateId } from '@/utils/formatters';
 import { toast } from 'sonner';
 
-type Tab = 'dashboard' | 'fixos' | 'variaveis' | 'pix' | 'caixinha' | 'config';
+type Tab = 'dashboard' | 'fixos' | 'variaveis' | 'pix' | 'receber' | 'caixinha' | 'config';
 
 const tabs: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'fixos', label: 'Fixos', icon: CalendarDays },
   { id: 'variaveis', label: 'Variaveis', icon: ShoppingCart },
   { id: 'pix', label: 'PIX', icon: Repeat },
+  { id: 'receber', label: 'Receber', icon: Users },
   { id: 'caixinha', label: 'Caixinha', icon: PiggyBank },
   { id: 'config', label: 'Config', icon: Settings },
 ];
@@ -52,6 +55,9 @@ export default function Home() {
   );
   const [caixinhaLancamentos, setCaixinhaLancamentos] = useLocalStorage<LancamentoCaixinha[]>(
     'gastos_nathan_caixinha', []
+  );
+  const [valoresReceber, setValoresReceber] = useLocalStorage<ValorAReceber[]>(
+    `gastos_nathan_receber_${config.mesAtual}`, []
   );
 
   // FAB quick add form
@@ -205,6 +211,15 @@ export default function Home() {
         )}
       </header>
 
+      {/* Notificacoes ao abrir */}
+      <Notificacoes
+        config={config}
+        fixos={fixos}
+        variaveis={variaveis}
+        pix={pix}
+        valoresReceber={valoresReceber}
+      />
+
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6 pb-24">
         {activeTab === 'dashboard' && (
@@ -225,6 +240,9 @@ export default function Home() {
         )}
         {activeTab === 'pix' && (
           <SecaoPix pix={pix} setPix={setPix} />
+        )}
+        {activeTab === 'receber' && (
+          <ValoresReceber valores={valoresReceber} setValores={setValoresReceber} />
         )}
         {activeTab === 'caixinha' && (
           <Caixinha
@@ -324,7 +342,7 @@ export default function Home() {
 
       {/* Bottom nav mobile */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-surface border-t border-border flex">
-        {tabs.slice(0, 5).map(tab => {
+        {tabs.filter(t => t.id !== 'config').map(tab => {
           const Icon = tab.icon;
           return (
             <button
