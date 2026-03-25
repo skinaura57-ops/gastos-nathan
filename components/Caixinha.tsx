@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import { calcularSaldoCaixinha } from '@/utils/calculos';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
+import BancoSelector, { BancoBadge } from './BancoSelector';
 import { toast } from 'sonner';
 
 interface CaixinhaProps {
@@ -24,6 +25,7 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
     descricao: '',
     valor: 0,
     data: new Date().toISOString().split('T')[0],
+    banco: '',
     observacao: '',
   });
   const [valorInput, setValorInput] = useState('');
@@ -34,14 +36,14 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
 
   const openNew = () => {
     setEditId(null);
-    setForm({ tipo: 'entrada', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], observacao: '' });
+    setForm({ tipo: 'entrada', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], banco: '', observacao: '' });
     setValorInput('');
     setModalOpen(true);
   };
 
   const openEdit = (l: LancamentoCaixinha) => {
     setEditId(l.id);
-    setForm({ tipo: l.tipo, descricao: l.descricao, valor: l.valor, data: l.data, observacao: l.observacao || '' });
+    setForm({ tipo: l.tipo, descricao: l.descricao, valor: l.valor, data: l.data, banco: l.banco || '', observacao: l.observacao || '' });
     setValorInput(l.valor.toString());
     setModalOpen(true);
   };
@@ -57,6 +59,7 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
       descricao: form.descricao,
       valor,
       data: form.data,
+      banco: form.banco || undefined,
       observacao: form.observacao || undefined,
     };
 
@@ -133,9 +136,15 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
                   )}
                   <span className="text-white font-medium">{l.descricao}</span>
                 </div>
-                <div className="text-sm text-zinc-400">
-                  {formatDate(l.data)}
-                  {l.observacao && <span> • {l.observacao}</span>}
+                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <span>{formatDate(l.data)}</span>
+                  {l.banco && (
+                    <>
+                      <span>•</span>
+                      <BancoBadge bancoNome={l.banco} size="sm" />
+                    </>
+                  )}
+                  {l.observacao && <><span>•</span><span>{l.observacao}</span></>}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -207,6 +216,11 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
               />
             </div>
           </div>
+          <BancoSelector
+            label="Banco"
+            value={form.banco}
+            onChange={(banco) => setForm(prev => ({ ...prev, banco }))}
+          />
           <div>
             <label className="text-sm text-zinc-400 mb-1 block">Observacao (opcional)</label>
             <input

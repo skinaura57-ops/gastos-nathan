@@ -49,6 +49,7 @@ export interface LancamentoCaixinha {
   descricao: string;
   valor: number;
   data: string;
+  banco?: string;
   observacao?: string;
 }
 
