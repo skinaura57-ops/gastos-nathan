@@ -62,6 +62,7 @@ export default function Home() {
 
   // FAB quick add form
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickParcelas, setQuickParcelas] = useState('1');
   const [quickForm, setQuickForm] = useState({
     descricao: '',
     categoria: 'Alimentacao',
@@ -105,25 +106,78 @@ export default function Home() {
     return Array.from(descs);
   }, [variaveis]);
 
+  function getNextMonth(mes: string, offset: number): string {
+    const [year, month] = mes.split('-').map(Number);
+    const date = new Date(year, month - 1 + offset, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
   const handleQuickAdd = () => {
     const valor = parseFloat(quickForm.valor.replace(',', '.'));
     if (!quickForm.descricao.trim()) { toast.error('Informe a descricao'); return; }
     if (isNaN(valor) || valor <= 0) { toast.error('Valor invalido'); return; }
 
-    const novoGasto: GastoVariavel = {
-      id: generateId(),
-      descricao: quickForm.descricao,
-      categoria: quickForm.categoria,
-      valor,
-      formaPagamento: quickForm.formaPagamento,
-      banco: quickForm.banco,
-      data: quickForm.data,
-      observacao: quickForm.observacao || undefined,
-    };
+    const numParcelas = quickForm.formaPagamento === 'credito' ? Math.max(1, parseInt(quickParcelas) || 1) : 1;
 
-    setVariaveis(prev => [...prev, novoGasto]);
-    toast.success('Gasto registrado!');
+    if (numParcelas > 1) {
+      const valorParcela = Math.round((valor / numParcelas) * 100) / 100;
+      const groupId = generateId();
+
+      // Parcela 1 - mes atual
+      setVariaveis(prev => [...prev, {
+        id: generateId(),
+        descricao: quickForm.descricao,
+        categoria: quickForm.categoria,
+        valor: valorParcela,
+        valorTotal: valor,
+        formaPagamento: quickForm.formaPagamento,
+        banco: quickForm.banco,
+        data: quickForm.data,
+        parcelas: numParcelas,
+        parcelaAtual: 1,
+        parcelaGroupId: groupId,
+        observacao: `Parcela 1/${numParcelas}`,
+      }]);
+
+      // Parcelas futuras
+      for (let i = 2; i <= numParcelas; i++) {
+        const mesFuturo = getNextMonth(config.mesAtual, i - 1);
+        const key = `gastos_nathan_variaveis_${mesFuturo}`;
+        const existing: GastoVariavel[] = JSON.parse(localStorage.getItem(key) || '[]');
+        existing.push({
+          id: generateId(),
+          descricao: quickForm.descricao,
+          categoria: quickForm.categoria,
+          valor: valorParcela,
+          valorTotal: valor,
+          formaPagamento: quickForm.formaPagamento,
+          banco: quickForm.banco,
+          data: quickForm.data,
+          parcelas: numParcelas,
+          parcelaAtual: i,
+          parcelaGroupId: groupId,
+          observacao: `Parcela ${i}/${numParcelas}`,
+        });
+        localStorage.setItem(key, JSON.stringify(existing));
+      }
+
+      toast.success(`Parcelado em ${numParcelas}x de R$ ${valorParcela.toFixed(2)}!`);
+    } else {
+      setVariaveis(prev => [...prev, {
+        id: generateId(),
+        descricao: quickForm.descricao,
+        categoria: quickForm.categoria,
+        valor,
+        formaPagamento: quickForm.formaPagamento,
+        banco: quickForm.banco,
+        data: quickForm.data,
+        observacao: quickForm.observacao || undefined,
+      }]);
+      toast.success('Gasto registrado!');
+    }
+
     setQuickAddOpen(false);
+    setQuickParcelas('1');
     setQuickForm({
       descricao: '',
       categoria: 'Alimentacao',
@@ -236,7 +290,18 @@ export default function Home() {
           <GastosFixos fixos={fixos} setFixos={setFixos} />
         )}
         {activeTab === 'variaveis' && (
-          <GastosVariaveis variaveis={variaveis} setVariaveis={setVariaveis} allDescricoes={allDescricoes} />
+          <GastosVariaveis
+            variaveis={variaveis}
+            setVariaveis={setVariaveis}
+            allDescricoes={allDescricoes}
+            mesAtual={config.mesAtual}
+            onSaveParcelado={(mes, gasto) => {
+              const key = `gastos_nathan_variaveis_${mes}`;
+              const existing: GastoVariavel[] = JSON.parse(localStorage.getItem(key) || '[]');
+              existing.push(gasto);
+              localStorage.setItem(key, JSON.stringify(existing));
+            }}
+          />
         )}
         {activeTab === 'pix' && (
           <SecaoPix pix={pix} setPix={setPix} />
@@ -305,18 +370,40 @@ export default function Home() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${quickForm.formaPagamento === 'credito' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">Pagamento</label>
               <select
                 value={quickForm.formaPagamento}
-                onChange={(e) => setQuickForm(prev => ({ ...prev, formaPagamento: e.target.value as GastoVariavel['formaPagamento'] }))}
+                onChange={(e) => {
+                  setQuickForm(prev => ({ ...prev, formaPagamento: e.target.value as GastoVariavel['formaPagamento'] }));
+                  if (e.target.value !== 'credito') setQuickParcelas('1');
+                }}
                 className="bg-surface-light border border-border rounded-lg px-3 py-2.5 text-white w-full focus:outline-none focus:border-accent"
               >
                 {FORMAS_PAGAMENTO.map(fp => <option key={fp.value} value={fp.value}>{fp.label}</option>)}
               </select>
             </div>
+            {quickForm.formaPagamento === 'credito' && (
+              <div>
+                <label className="text-sm text-zinc-400 mb-1 block">Parcelas</label>
+                <select
+                  value={quickParcelas}
+                  onChange={(e) => setQuickParcelas(e.target.value)}
+                  className="bg-surface-light border border-border rounded-lg px-3 py-2.5 text-white w-full focus:outline-none focus:border-accent"
+                >
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>{n}x</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
+          {quickForm.formaPagamento === 'credito' && parseInt(quickParcelas) > 1 && parseFloat(quickForm.valor.replace(',', '.')) > 0 && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300">
+              {quickParcelas}x de R$ {(parseFloat(quickForm.valor.replace(',', '.')) / parseInt(quickParcelas)).toFixed(2)} — parcelas nos proximos meses
+            </div>
+          )}
           <BancoSelector
             label="Banco"
             value={quickForm.banco}

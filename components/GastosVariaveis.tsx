@@ -13,6 +13,8 @@ interface GastosVariaveisProps {
   variaveis: GastoVariavel[];
   setVariaveis: (v: GastoVariavel[] | ((prev: GastoVariavel[]) => GastoVariavel[])) => void;
   allDescricoes: string[];
+  mesAtual: string;
+  onSaveParcelado?: (mes: string, gasto: GastoVariavel) => void;
 }
 
 const emptyGasto: Omit<GastoVariavel, 'id'> = {
@@ -25,11 +27,18 @@ const emptyGasto: Omit<GastoVariavel, 'id'> = {
   observacao: '',
 };
 
-export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes }: GastosVariaveisProps) {
+function getNextMonth(mes: string, offset: number): string {
+  const [year, month] = mes.split('-').map(Number);
+  const date = new Date(year, month - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes, mesAtual, onSaveParcelado }: GastosVariaveisProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyGasto);
   const [valorInput, setValorInput] = useState('');
+  const [parcelasInput, setParcelasInput] = useState('1');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
@@ -40,6 +49,7 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
     setEditId(null);
     setForm({ ...emptyGasto, data: new Date().toISOString().split('T')[0] });
     setValorInput('');
+    setParcelasInput('1');
     setModalOpen(true);
   };
 
@@ -47,19 +57,57 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
     setEditId(g.id);
     setForm(g);
     setValorInput(g.valor.toString());
+    setParcelasInput(g.parcelas ? g.parcelas.toString() : '1');
     setModalOpen(true);
   };
 
   const handleSave = () => {
-    const valor = parseFloat(valorInput.replace(',', '.'));
+    const valorDigitado = parseFloat(valorInput.replace(',', '.'));
     if (!form.descricao.trim()) { toast.error('Informe a descricao'); return; }
-    if (isNaN(valor) || valor <= 0) { toast.error('Valor invalido'); return; }
+    if (isNaN(valorDigitado) || valorDigitado <= 0) { toast.error('Valor invalido'); return; }
+
+    const numParcelas = form.formaPagamento === 'credito' ? Math.max(1, parseInt(parcelasInput) || 1) : 1;
 
     if (editId) {
-      setVariaveis(prev => prev.map(g => g.id === editId ? { ...form, id: editId, valor } : g));
+      setVariaveis(prev => prev.map(g => g.id === editId ? { ...form, id: editId, valor: valorDigitado } : g));
       toast.success('Gasto atualizado!');
+    } else if (numParcelas > 1) {
+      const valorParcela = Math.round((valorDigitado / numParcelas) * 100) / 100;
+      const groupId = generateId();
+
+      // Parcela 1 - mes atual
+      const parcela1: GastoVariavel = {
+        ...form,
+        id: generateId(),
+        valor: valorParcela,
+        valorTotal: valorDigitado,
+        parcelas: numParcelas,
+        parcelaAtual: 1,
+        parcelaGroupId: groupId,
+        observacao: form.observacao ? `${form.observacao} (1/${numParcelas})` : `Parcela 1/${numParcelas}`,
+      };
+      setVariaveis(prev => [...prev, parcela1]);
+
+      // Parcelas futuras
+      for (let i = 2; i <= numParcelas; i++) {
+        const mesFuturo = getNextMonth(mesAtual, i - 1);
+        const parcelaFutura: GastoVariavel = {
+          ...form,
+          id: generateId(),
+          valor: valorParcela,
+          valorTotal: valorDigitado,
+          parcelas: numParcelas,
+          parcelaAtual: i,
+          parcelaGroupId: groupId,
+          observacao: form.observacao ? `${form.observacao} (${i}/${numParcelas})` : `Parcela ${i}/${numParcelas}`,
+        };
+        if (onSaveParcelado) {
+          onSaveParcelado(mesFuturo, parcelaFutura);
+        }
+      }
+      toast.success(`Parcelado em ${numParcelas}x de ${formatCurrency(valorParcela)}!`);
     } else {
-      setVariaveis(prev => [...prev, { ...form, id: generateId(), valor }]);
+      setVariaveis(prev => [...prev, { ...form, id: generateId(), valor: valorDigitado }]);
       toast.success('Gasto registrado!');
     }
     setModalOpen(false);
@@ -178,7 +226,12 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
               <div key={g.id} className="bg-surface rounded-xl border border-border p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="text-white font-medium">{g.descricao}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-medium">{g.descricao}</p>
+                      {g.parcelas && g.parcelas > 1 && (
+                        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-semibold">{g.parcelaAtual}/{g.parcelas}</span>
+                      )}
+                    </div>
                     <p className="text-sm text-zinc-400">{formatDate(g.data)}</p>
                   </div>
                   <p className="text-white font-semibold">{formatCurrency(g.valor)}</p>
@@ -216,7 +269,12 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
                   <tr key={g.id} className="border-b border-border/50">
                     <td className="py-3 pr-4 text-zinc-400 text-sm">{formatDate(g.data)}</td>
                     <td className="py-3 pr-4">
-                      <p className="text-white font-medium">{g.descricao}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium">{g.descricao}</p>
+                        {g.parcelas && g.parcelas > 1 && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-semibold shrink-0">{g.parcelaAtual}/{g.parcelas}</span>
+                        )}
+                      </div>
                       {g.observacao && <p className="text-xs text-zinc-500">{g.observacao}</p>}
                     </td>
                     <td className="py-3 pr-4">
@@ -302,18 +360,42 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${form.formaPagamento === 'credito' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">Forma de Pagamento</label>
               <select
                 value={form.formaPagamento}
-                onChange={(e) => setForm(prev => ({ ...prev, formaPagamento: e.target.value as GastoVariavel['formaPagamento'] }))}
+                onChange={(e) => {
+                  setForm(prev => ({ ...prev, formaPagamento: e.target.value as GastoVariavel['formaPagamento'] }));
+                  if (e.target.value !== 'credito') setParcelasInput('1');
+                }}
                 className="bg-surface-light border border-border rounded-lg px-3 py-2.5 text-white w-full focus:outline-none focus:border-accent"
               >
                 {FORMAS_PAGAMENTO.map(fp => <option key={fp.value} value={fp.value}>{fp.label}</option>)}
               </select>
             </div>
+            {form.formaPagamento === 'credito' && !editId && (
+              <div>
+                <label className="text-sm text-zinc-400 mb-1 block">Parcelas</label>
+                <select
+                  value={parcelasInput}
+                  onChange={(e) => setParcelasInput(e.target.value)}
+                  className="bg-surface-light border border-border rounded-lg px-3 py-2.5 text-white w-full focus:outline-none focus:border-accent"
+                >
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>{n}x {parseInt(valorInput.replace(',', '.')) > 0 ? `de ${formatCurrency(parseFloat(valorInput.replace(',', '.')) / n)}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
+          {form.formaPagamento === 'credito' && !editId && parseInt(parcelasInput) > 1 && parseFloat(valorInput.replace(',', '.')) > 0 && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300">
+              Total: {formatCurrency(parseFloat(valorInput.replace(',', '.')))} em {parcelasInput}x de {formatCurrency(parseFloat(valorInput.replace(',', '.')) / parseInt(parcelasInput))}
+              <br />
+              <span className="text-xs text-blue-400/70">As parcelas serao distribuidas nos proximos {parseInt(parcelasInput) - 1} meses automaticamente</span>
+            </div>
+          )}
           <BancoSelector
             label="Banco/Cartao"
             value={form.banco}

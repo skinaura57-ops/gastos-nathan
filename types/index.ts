@@ -27,9 +27,13 @@ export interface GastoVariavel {
   descricao: string;
   categoria: string;
   valor: number;
+  valorTotal?: number;
   formaPagamento: 'credito' | 'debito' | 'pix' | 'dinheiro';
   banco: string;
   data: string;
+  parcelas?: number;
+  parcelaAtual?: number;
+  parcelaGroupId?: string;
   observacao?: string;
 }
 
