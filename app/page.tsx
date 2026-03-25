@@ -13,7 +13,8 @@ import SecaoPix from '@/components/SecaoPix';
 import Caixinha from '@/components/Caixinha';
 import Configuracoes from '@/components/Configuracoes';
 import Modal from '@/components/Modal';
-import { CATEGORIAS, FORMAS_PAGAMENTO, BANCOS_COMUNS } from '@/types';
+import BancoSelector from '@/components/BancoSelector';
+import { CATEGORIAS, FORMAS_PAGAMENTO } from '@/types';
 import { generateId } from '@/utils/formatters';
 import { toast } from 'sonner';
 
@@ -297,21 +298,12 @@ export default function Home() {
                 {FORMAS_PAGAMENTO.map(fp => <option key={fp.value} value={fp.value}>{fp.label}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-sm text-zinc-400 mb-1 block">Banco</label>
-              <input
-                type="text"
-                value={quickForm.banco}
-                onChange={(e) => setQuickForm(prev => ({ ...prev, banco: e.target.value }))}
-                list="quick-bancos"
-                className="bg-surface-light border border-border rounded-lg px-4 py-2.5 text-white w-full focus:outline-none focus:border-accent"
-                placeholder="Nubank"
-              />
-              <datalist id="quick-bancos">
-                {BANCOS_COMUNS.map(b => <option key={b} value={b} />)}
-              </datalist>
-            </div>
           </div>
+          <BancoSelector
+            label="Banco"
+            value={quickForm.banco}
+            onChange={(banco) => setQuickForm(prev => ({ ...prev, banco }))}
+          />
           <div>
             <label className="text-sm text-zinc-400 mb-1 block">Data</label>
             <input

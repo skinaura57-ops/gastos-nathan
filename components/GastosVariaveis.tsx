@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Search, ShoppingCart, Filter } from 'lucide-react';
-import { GastoVariavel, CATEGORIAS, FORMAS_PAGAMENTO, BANCOS_COMUNS } from '@/types';
+import { GastoVariavel, CATEGORIAS, FORMAS_PAGAMENTO, BANCOS } from '@/types';
 import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
+import BancoSelector, { BancoBadge } from './BancoSelector';
 import { toast } from 'sonner';
 
 interface GastosVariaveisProps {
@@ -183,9 +184,9 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
                   <p className="text-white font-semibold">{formatCurrency(g.valor)}</p>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded bg-surface-light text-xs text-zinc-400">{g.categoria}</span>
-                    <span className="text-xs text-zinc-500 capitalize">{g.formaPagamento}</span>
+                    <BancoBadge bancoNome={g.banco} size="sm" />
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(g)} className="p-1.5 text-zinc-400 hover:text-white"><Pencil size={14} /></button>
@@ -223,7 +224,7 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
                     </td>
                     <td className="py-3 pr-4 text-white">{formatCurrency(g.valor)}</td>
                     <td className="py-3 pr-4 text-zinc-400 text-sm capitalize">{g.formaPagamento}</td>
-                    <td className="py-3 pr-4 text-zinc-400 text-sm">{g.banco}</td>
+                    <td className="py-3 pr-4"><BancoBadge bancoNome={g.banco} /></td>
                     <td className="py-3">
                       <div className="flex gap-2">
                         <button onClick={() => openEdit(g)} className="p-1.5 rounded-lg hover:bg-surface-light text-zinc-400 hover:text-white transition-colors">
@@ -312,21 +313,12 @@ export default function GastosVariaveis({ variaveis, setVariaveis, allDescricoes
                 {FORMAS_PAGAMENTO.map(fp => <option key={fp.value} value={fp.value}>{fp.label}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-sm text-zinc-400 mb-1 block">Banco/Cartao</label>
-              <input
-                type="text"
-                value={form.banco}
-                onChange={(e) => setForm(prev => ({ ...prev, banco: e.target.value }))}
-                list="bancos-var"
-                className="bg-surface-light border border-border rounded-lg px-4 py-2.5 text-white w-full focus:outline-none focus:border-accent"
-                placeholder="Nubank"
-              />
-              <datalist id="bancos-var">
-                {BANCOS_COMUNS.map(b => <option key={b} value={b} />)}
-              </datalist>
-            </div>
           </div>
+          <BancoSelector
+            label="Banco/Cartao"
+            value={form.banco}
+            onChange={(banco) => setForm(prev => ({ ...prev, banco }))}
+          />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-zinc-400 mb-1 block">Data</label>

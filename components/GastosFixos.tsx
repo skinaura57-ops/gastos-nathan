@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, CalendarDays, Check, Clock } from 'lucide-react';
-import { GastoFixo, CATEGORIAS, FORMAS_PAGAMENTO, BANCOS_COMUNS } from '@/types';
+import { GastoFixo, CATEGORIAS, FORMAS_PAGAMENTO } from '@/types';
 import { formatCurrency, generateId } from '@/utils/formatters';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
+import BancoSelector, { BancoBadge } from './BancoSelector';
 import { toast } from 'sonner';
 
 interface GastosFixosProps {
@@ -148,7 +149,7 @@ export default function GastosFixos({ fixos, setFixos }: GastosFixosProps) {
                     </td>
                     <td className="py-3 pr-4 text-white">{formatCurrency(fixo.valor)}</td>
                     <td className="py-3 pr-4 text-zinc-400 text-sm capitalize">{fixo.formaPagamento}</td>
-                    <td className="py-3 pr-4 text-zinc-400 text-sm">{fixo.banco}</td>
+                    <td className="py-3 pr-4"><BancoBadge bancoNome={fixo.banco} /></td>
                     <td className="py-3 pr-4 text-zinc-400 text-sm">Dia {fixo.diaVencimento}</td>
                     <td className="py-3">
                       <div className="flex gap-2">
@@ -226,21 +227,12 @@ export default function GastosFixos({ fixos, setFixos }: GastosFixosProps) {
                 {FORMAS_PAGAMENTO.map(fp => <option key={fp.value} value={fp.value}>{fp.label}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-sm text-zinc-400 mb-1 block">Banco/Cartao</label>
-              <input
-                type="text"
-                value={form.banco}
-                onChange={(e) => setForm(prev => ({ ...prev, banco: e.target.value }))}
-                list="bancos-fixos"
-                className="bg-surface-light border border-border rounded-lg px-4 py-2.5 text-white w-full focus:outline-none focus:border-accent"
-                placeholder="Nubank"
-              />
-              <datalist id="bancos-fixos">
-                {BANCOS_COMUNS.map(b => <option key={b} value={b} />)}
-              </datalist>
-            </div>
           </div>
+          <BancoSelector
+            label="Banco/Cartao"
+            value={form.banco}
+            onChange={(banco) => setForm(prev => ({ ...prev, banco }))}
+          />
           <div>
             <label className="text-sm text-zinc-400 mb-1 block">Dia de Vencimento</label>
             <input

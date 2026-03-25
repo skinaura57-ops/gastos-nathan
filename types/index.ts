@@ -73,15 +73,20 @@ export const FORMAS_PAGAMENTO = [
   { value: 'dinheiro', label: 'Dinheiro' },
 ] as const;
 
-export const BANCOS_COMUNS = [
-  'Nubank',
-  'Inter',
-  'Bradesco',
-  'Itau',
-  'Santander',
-  'Caixa',
-  'Banco do Brasil',
-  'C6 Bank',
-  'PicPay',
-  'Mercado Pago',
-] as const;
+export interface BancoInfo {
+  id: string;
+  nome: string;
+  cor: string;
+  corTexto: string;
+  sigla: string;
+}
+
+export const BANCOS: BancoInfo[] = [
+  { id: 'inter', nome: 'Inter', cor: '#FF7A00', corTexto: '#fff', sigla: 'Inter' },
+  { id: '99pay', nome: '99pay', cor: '#FFDD00', corTexto: '#000', sigla: '99' },
+  { id: 'picpay', nome: 'PicPay', cor: '#21C25E', corTexto: '#fff', sigla: 'Pic' },
+  { id: 'sicoob', nome: 'Sicoob', cor: '#003641', corTexto: '#fff', sigla: 'Sic' },
+  { id: 'c6bank', nome: 'C6 Bank', cor: '#1A1A1A', corTexto: '#CEFF00', sigla: 'C6' },
+];
+
+export const BANCOS_COMUNS = BANCOS.map(b => b.nome);
