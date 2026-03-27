@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { Plus, BarChart3, CalendarDays, ShoppingCart, Repeat, PiggyBank, Settings, Menu, X, Users } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Plus, BarChart3, CalendarDays, ShoppingCart, Repeat, PiggyBank, Settings, Menu, X, Users, Cloud, CloudOff } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useCloudSync } from '@/hooks/useCloudSync';
 import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha, ValorAReceber } from '@/types';
 import { getMesAtual, formatMesAno } from '@/utils/formatters';
 import { calcularTotalGasto } from '@/utils/calculos';
@@ -43,6 +44,10 @@ export default function Home() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [synced, setSynced] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
+
+  const { loadFromCloud, saveToCloud, debouncedSave } = useCloudSync();
 
   const [config, setConfig] = useLocalStorage<Config>('gastos_nathan_config', defaultConfig);
   const [fixos, setFixos] = useLocalStorage<GastoFixo[]>('gastos_nathan_fixos', []);
@@ -72,9 +77,36 @@ export default function Home() {
     observacao: '',
   });
 
+  // Load from cloud on first mount
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const alreadyLoaded = sessionStorage.getItem('gastos_nathan_cloud_loaded');
+    if (alreadyLoaded) {
+      setSyncStatus('done');
+      return;
+    }
+    setSyncStatus('syncing');
+    loadFromCloud().then((loaded) => {
+      if (loaded) {
+        sessionStorage.setItem('gastos_nathan_cloud_loaded', '1');
+        setSynced(true);
+        setSyncStatus('done');
+        window.location.reload();
+      } else {
+        sessionStorage.setItem('gastos_nathan_cloud_loaded', '1');
+        setSyncStatus('done');
+      }
+    }).catch(() => {
+      setSyncStatus('error');
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-sync to cloud whenever data changes
+  useEffect(() => {
+    if (mounted) {
+      debouncedSave();
+    }
+  }, [config, fixos, variaveis, pix, caixinhaLancamentos, valoresReceber, mounted, debouncedSave]);
 
   // Compute historical data for bar chart
   const historicoMeses = useMemo(() => {
@@ -212,9 +244,16 @@ export default function Home() {
               <span className="text-accent">$</span> Gastos do Nathan
             </h1>
           </div>
-          <span className="text-sm text-zinc-400 hidden sm:block">
-            {formatMesAno(config.mesAtual)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-400 hidden sm:block">
+              {formatMesAno(config.mesAtual)}
+            </span>
+            <div className="flex items-center gap-1 text-xs" title="Sincronizacao na nuvem">
+              {syncStatus === 'syncing' && <Cloud size={14} className="text-yellow-400 animate-pulse" />}
+              {syncStatus === 'done' && <Cloud size={14} className="text-green-400" />}
+              {syncStatus === 'error' && <CloudOff size={14} className="text-red-400" />}
+            </div>
+          </div>
         </div>
 
         {/* Desktop tabs */}
