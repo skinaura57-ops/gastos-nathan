@@ -35,24 +35,19 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
   const totalEntradas = lancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0);
   const totalSaidas = lancamentos.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0);
 
-  // Calcular saldo por banco: entradas - saidas por banco
+  // Calcular saldo por banco: somente lancamentos com banco definido
   const saldoPorBanco = useMemo(() => {
     const porBanco: Record<string, number> = {};
-    // Saldo base sem banco definido
-    if (caixinhaBase > 0) {
-      porBanco['Sem banco'] = caixinhaBase;
-    }
     lancamentos.forEach(l => {
-      const banco = l.banco || 'Sem banco';
-      if (!porBanco[banco]) porBanco[banco] = 0;
-      porBanco[banco] += l.tipo === 'entrada' ? l.valor : -l.valor;
+      if (!l.banco) return; // ignora lancamentos sem banco
+      if (!porBanco[l.banco]) porBanco[l.banco] = 0;
+      porBanco[l.banco] += l.tipo === 'entrada' ? l.valor : -l.valor;
     });
-    // Filtrar bancos com saldo > 0
     return Object.entries(porBanco)
       .filter(([, val]) => val > 0)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [lancamentos, caixinhaBase]);
+  }, [lancamentos]);
 
   const BANCO_COLORS: Record<string, string> = {};
   BANCOS.forEach(b => { BANCO_COLORS[b.nome] = b.cor; });
