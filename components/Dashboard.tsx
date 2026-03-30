@@ -35,7 +35,7 @@ const COLORS = [
 export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLancamentos, historicoMeses }: DashboardProps) {
   const totalGasto = calcularTotalGasto(fixos, variaveis, pix);
   const saldoDisponivel = calcularSaldoDisponivel(config.salario, fixos, variaveis, pix);
-  const saldoCaixinha = calcularSaldoCaixinha(config.caixinhaBase, caixinhaLancamentos);
+  const saldoCaixinha = calcularSaldoCaixinha(0, caixinhaLancamentos);
   const saldoReal = saldoDisponivel + saldoCaixinha;
   const percentualGasto = config.salario > 0 ? (totalGasto / config.salario) * 100 : 0;
   const entradasPix = calcularTotalPixEntradas(pix);

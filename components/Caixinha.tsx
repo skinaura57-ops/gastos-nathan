@@ -31,7 +31,7 @@ export default function Caixinha({ lancamentos, setLancamentos, caixinhaBase }: 
   });
   const [valorInput, setValorInput] = useState('');
 
-  const saldoAtual = calcularSaldoCaixinha(caixinhaBase, lancamentos);
+  const saldoAtual = calcularSaldoCaixinha(0, lancamentos);
   const totalEntradas = lancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0);
   const totalSaidas = lancamentos.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0);
 
