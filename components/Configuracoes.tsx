@@ -1,22 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Save, Trash2, Plus } from 'lucide-react';
-import { Config, CATEGORIAS } from '@/types';
-import { formatCurrency } from '@/utils/formatters';
+import { Settings, Save, Trash2, Plus, CalendarCheck, AlertTriangle } from 'lucide-react';
+import { Config, CATEGORIAS, GastoFixo } from '@/types';
+import { formatCurrency, formatMesAno } from '@/utils/formatters';
 import { toast } from 'sonner';
+import ConfirmDialog from './ConfirmDialog';
 
 interface ConfiguracoesProps {
   config: Config;
   setConfig: (config: Config | ((prev: Config) => Config)) => void;
+  fixos: GastoFixo[];
+  setFixos: (f: GastoFixo[] | ((prev: GastoFixo[]) => GastoFixo[])) => void;
 }
 
-export default function Configuracoes({ config, setConfig }: ConfiguracoesProps) {
+export default function Configuracoes({ config, setConfig, fixos, setFixos }: ConfiguracoesProps) {
   const [salarioInput, setSalarioInput] = useState(config.salario.toString());
   const [caixinhaInput, setCaixinhaInput] = useState(config.caixinhaBase.toString());
   const [novaCategoria, setNovaCategoria] = useState('');
   const [novoLimiteTipo, setNovoLimiteTipo] = useState<'fixo' | 'percentual'>('fixo');
   const [novoLimiteValor, setNovoLimiteValor] = useState('');
+  const [confirmVirarMes, setConfirmVirarMes] = useState(false);
 
   const handleSalvarSalario = () => {
     const valor = parseFloat(salarioInput.replace(',', '.'));
@@ -41,6 +45,25 @@ export default function Configuracoes({ config, setConfig }: ConfiguracoesProps)
   const handleMesChange = (mes: string) => {
     setConfig(prev => ({ ...prev, mesAtual: mes }));
     toast.success('Mes alterado!');
+  };
+
+  const getProximoMes = (mes: string): string => {
+    const [year, month] = mes.split('-').map(Number);
+    const date = new Date(year, month, 1); // month is 0-based, so this goes to next month
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const handleVirarMes = () => {
+    const proximoMes = getProximoMes(config.mesAtual);
+
+    // Reset all fixed expenses to "pendente"
+    setFixos(prev => prev.map(f => ({ ...f, pago: false })));
+
+    // Advance to next month
+    setConfig(prev => ({ ...prev, mesAtual: proximoMes }));
+
+    toast.success(`Mes virado! Agora voce esta em ${formatMesAno(proximoMes)}`);
+    setConfirmVirarMes(false);
   };
 
   const handleAdicionarLimite = () => {
@@ -113,6 +136,30 @@ export default function Configuracoes({ config, setConfig }: ConfiguracoesProps)
       <div className="flex items-center gap-3 mb-6">
         <Settings className="text-accent" size={24} />
         <h2 className="text-xl font-bold text-white">Configuracoes</h2>
+      </div>
+
+      {/* Virar Mes */}
+      <div className="bg-gradient-to-r from-accent/10 to-green-500/10 rounded-xl border border-accent/30 p-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <CalendarCheck size={20} className="text-accent" />
+              Virar Mes
+            </h3>
+            <p className="text-sm text-zinc-400 mt-1">
+              Mes atual: <span className="text-white font-medium">{formatMesAno(config.mesAtual)}</span> → Proximo: <span className="text-accent font-medium">{formatMesAno(getProximoMes(config.mesAtual))}</span>
+            </p>
+            <p className="text-xs text-zinc-500 mt-1">
+              Gastos fixos voltam para &quot;pendente&quot;. Parcelas ja cadastradas nos meses futuros sao mantidas.
+            </p>
+          </div>
+          <button
+            onClick={() => setConfirmVirarMes(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent-dark text-black font-bold rounded-xl transition-colors shadow-lg shadow-accent/20 shrink-0"
+          >
+            <CalendarCheck size={20} /> Virar Mes
+          </button>
+        </div>
       </div>
 
       {/* Mes de referencia */}
@@ -262,6 +309,14 @@ export default function Configuracoes({ config, setConfig }: ConfiguracoesProps)
           </label>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmVirarMes}
+        onClose={() => setConfirmVirarMes(false)}
+        onConfirm={handleVirarMes}
+        title="Virar Mes"
+        message={`Tem certeza que deseja virar para ${formatMesAno(getProximoMes(config.mesAtual))}? Os gastos fixos voltarao para "pendente" e o novo mes comecara zerado (parcelas futuras sao mantidas).`}
+      />
     </div>
   );
 }

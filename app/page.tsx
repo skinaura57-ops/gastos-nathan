@@ -351,7 +351,7 @@ export default function Home() {
           />
         )}
         {activeTab === 'config' && (
-          <Configuracoes config={config} setConfig={setConfig} />
+          <Configuracoes config={config} setConfig={setConfig} fixos={fixos} setFixos={setFixos} />
         )}
       </main>
 
