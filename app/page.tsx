@@ -346,7 +346,7 @@ export default function Home() {
           />
         )}
         {activeTab === 'receber' && (
-          <ValoresReceber valores={valoresReceber} setValores={setValoresReceber} />
+          <ValoresReceber valores={valoresReceber} setValores={setValoresReceber} setCaixinhaLancamentos={setCaixinhaLancamentos} />
         )}
         {activeTab === 'caixinha' && (
           caixinhaDesbloqueada ? (

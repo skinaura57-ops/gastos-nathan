@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Users, Check, Clock, DollarSign } from 'lucide-react';
-import { ValorAReceber } from '@/types';
+import { ValorAReceber, LancamentoCaixinha } from '@/types';
 import { formatCurrency, formatDate, generateId } from '@/utils/formatters';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 interface ValoresReceberProps {
   valores: ValorAReceber[];
   setValores: (v: ValorAReceber[] | ((prev: ValorAReceber[]) => ValorAReceber[])) => void;
+  setCaixinhaLancamentos: (l: LancamentoCaixinha[] | ((prev: LancamentoCaixinha[]) => LancamentoCaixinha[])) => void;
 }
 
-export default function ValoresReceber({ valores, setValores }: ValoresReceberProps) {
+export default function ValoresReceber({ valores, setValores, setCaixinhaLancamentos }: ValoresReceberProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -71,12 +72,39 @@ export default function ValoresReceber({ valores, setValores }: ValoresReceberPr
   };
 
   const toggleRecebido = (id: string) => {
-    setValores(prev => prev.map(v => {
-      if (v.id !== id) return v;
-      const novoStatus = !v.recebido;
-      if (novoStatus) toast.success(`Valor de ${v.nome} marcado como recebido!`);
-      return { ...v, recebido: novoStatus };
-    }));
+    const item = valores.find(v => v.id === id);
+    if (!item) return;
+
+    const novoStatus = !item.recebido;
+
+    if (novoStatus) {
+      // Add to caixinha Inter
+      setCaixinhaLancamentos(prev => [...prev, {
+        id: generateId(),
+        tipo: 'entrada',
+        descricao: `Recebido de ${item.nome} - ${item.descricao || 'A receber'}`,
+        valor: item.valor,
+        data: new Date().toISOString().split('T')[0],
+        banco: 'Inter',
+        observacao: 'Via valores a receber',
+      }]);
+      toast.success(`R$ ${item.valor.toFixed(2)} de ${item.nome} adicionado na Caixinha Inter!`);
+    } else {
+      // Remove from caixinha (find matching entry)
+      setCaixinhaLancamentos(prev => {
+        const idx = prev.findIndex(l =>
+          l.descricao.includes(item.nome) && l.valor === item.valor && l.banco === 'Inter' && l.observacao === 'Via valores a receber'
+        );
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy.splice(idx, 1);
+          return copy;
+        }
+        return prev;
+      });
+    }
+
+    setValores(prev => prev.map(v => v.id === id ? { ...v, recebido: novoStatus } : v));
   };
 
   // Agrupar por pessoa
