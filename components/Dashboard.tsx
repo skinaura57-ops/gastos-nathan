@@ -125,12 +125,9 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
         </div>
         <div className="bg-surface rounded-xl border border-border p-5">
           <div className="flex items-center gap-2 text-accent mb-2">
-            <PiggyBank size={18} /> Saldo Real
+            <Wallet size={18} /> Fixos (Total)
           </div>
-          <p className={`text-2xl font-bold ${saldoReal >= 0 ? 'text-accent' : 'text-red-400'}`}>
-            {formatCurrency(saldoReal)}
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">Inclui caixinha</p>
+          <p className="text-2xl font-bold text-orange-400">{formatCurrency(totalFixos)}</p>
         </div>
       </div>
 
@@ -362,18 +359,6 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
           </div>
         )}
 
-        {/* Caixinha card */}
-        <div className="bg-surface rounded-xl border border-border p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <PiggyBank size={20} className="text-accent" />
-            <h3 className="font-semibold text-white">Caixinha do Nathan</h3>
-          </div>
-          <p className="text-3xl font-bold text-accent mb-2">{formatCurrency(saldoCaixinha)}</p>
-          <div className="flex gap-4 text-sm">
-            <span className="text-green-400">+{formatCurrency(caixinhaLancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0))} entradas</span>
-            <span className="text-red-400">-{formatCurrency(caixinhaLancamentos.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0))} saidas</span>
-          </div>
-        </div>
       </div>
     </div>
   );

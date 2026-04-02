@@ -56,10 +56,22 @@ export default function Configuracoes({ config, setConfig, fixos, setFixos }: Co
   const handleVirarMes = () => {
     const proximoMes = getProximoMes(config.mesAtual);
 
+    // Copy unpaid "a receber" to next month
+    try {
+      const receberKey = `gastos_nathan_receber_${config.mesAtual}`;
+      const receberData = JSON.parse(localStorage.getItem(receberKey) || '[]');
+      const naoPagos = receberData.filter((v: any) => !v.recebido);
+      if (naoPagos.length > 0) {
+        const novoKey = `gastos_nathan_receber_${proximoMes}`;
+        const existente = JSON.parse(localStorage.getItem(novoKey) || '[]');
+        localStorage.setItem(novoKey, JSON.stringify([...existente, ...naoPagos]));
+      }
+    } catch {}
+
     // Reset all fixed expenses to "pendente"
     setFixos(prev => prev.map(f => ({ ...f, pago: false })));
 
-    // Advance to next month
+    // Advance to next month (limites are part of config and are preserved)
     setConfig(prev => ({ ...prev, mesAtual: proximoMes }));
 
     toast.success(`Mes virado! Agora voce esta em ${formatMesAno(proximoMes)}`);

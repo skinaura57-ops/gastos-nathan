@@ -46,6 +46,11 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [synced, setSynced] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
+  const [caixinhaDesbloqueada, setCaixinhaDesbloqueada] = useState(false);
+  const [senhaInput, setSenhaInput] = useState('');
+  const [senhaErro, setSenhaErro] = useState(false);
+
+  const SENHA_CAIXINHA = '1914'; // Senha fixa para acessar a caixinha
 
   const { loadFromCloud, saveToCloud, debouncedSave } = useCloudSync();
 
@@ -264,7 +269,7 @@ export default function Home() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => { setActiveTab(tab.id); if (tab.id !== 'caixinha') setCaixinhaDesbloqueada(false); }}
                   className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                     activeTab === tab.id
                       ? 'bg-surface text-accent border-b-2 border-accent'
@@ -287,7 +292,7 @@ export default function Home() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setMobileMenu(false); }}
+                  onClick={() => { setActiveTab(tab.id); setMobileMenu(false); if (tab.id !== 'caixinha') setCaixinhaDesbloqueada(false); }}
                   className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === tab.id
                       ? 'bg-accent/10 text-accent'
@@ -344,11 +349,57 @@ export default function Home() {
           <ValoresReceber valores={valoresReceber} setValores={setValoresReceber} />
         )}
         {activeTab === 'caixinha' && (
-          <Caixinha
-            lancamentos={caixinhaLancamentos}
-            setLancamentos={setCaixinhaLancamentos}
-            caixinhaBase={config.caixinhaBase}
-          />
+          caixinhaDesbloqueada ? (
+            <Caixinha
+              lancamentos={caixinhaLancamentos}
+              setLancamentos={setCaixinhaLancamentos}
+              caixinhaBase={config.caixinhaBase}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="bg-surface rounded-2xl border border-border p-8 max-w-sm w-full text-center">
+                <PiggyBank size={48} className="mx-auto mb-4 text-accent" />
+                <h2 className="text-xl font-bold text-white mb-2">Caixinha do Nathan</h2>
+                <p className="text-sm text-zinc-400 mb-6">Digite a senha para acessar</p>
+                <input
+                  type="password"
+                  value={senhaInput}
+                  onChange={(e) => { setSenhaInput(e.target.value); setSenhaErro(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (senhaInput === SENHA_CAIXINHA) {
+                        setCaixinhaDesbloqueada(true);
+                        setSenhaInput('');
+                        setSenhaErro(false);
+                      } else {
+                        setSenhaErro(true);
+                      }
+                    }
+                  }}
+                  placeholder="Senha"
+                  className={`bg-surface-light border rounded-lg px-4 py-3 text-white w-full text-center text-lg tracking-widest focus:outline-none mb-3 ${
+                    senhaErro ? 'border-red-500' : 'border-border focus:border-accent'
+                  }`}
+                  autoFocus
+                />
+                {senhaErro && <p className="text-red-400 text-sm mb-3">Senha incorreta</p>}
+                <button
+                  onClick={() => {
+                    if (senhaInput === SENHA_CAIXINHA) {
+                      setCaixinhaDesbloqueada(true);
+                      setSenhaInput('');
+                      setSenhaErro(false);
+                    } else {
+                      setSenhaErro(true);
+                    }
+                  }}
+                  className="w-full py-3 bg-accent hover:bg-accent-dark text-black font-bold rounded-lg transition-colors"
+                >
+                  Desbloquear
+                </button>
+              </div>
+            </div>
+          )
         )}
         {activeTab === 'config' && (
           <Configuracoes config={config} setConfig={setConfig} fixos={fixos} setFixos={setFixos} />
@@ -468,7 +519,7 @@ export default function Home() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); if (tab.id !== 'caixinha') setCaixinhaDesbloqueada(false); }}
               className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
                 activeTab === tab.id ? 'text-accent' : 'text-zinc-500'
               }`}
