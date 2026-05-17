@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, AlertTriangle, XCircle, BarChart3 } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, AlertTriangle, XCircle, BarChart3, CreditCard } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha } from '@/types';
+import { Config, GastoFixo, GastoVariavel, LancamentoPix, LancamentoCaixinha, BANCOS } from '@/types';
 import { formatCurrency, formatMesAno } from '@/utils/formatters';
 import {
   calcularTotalGasto,
@@ -42,6 +42,25 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
   const saidasPix = calcularTotalPixSaidas(pix);
   const totalFixos = calcularTotalFixos(fixos);
   const totalVariaveis = calcularTotalVariaveis(variaveis);
+
+  const faturasPorBanco = useMemo(() => {
+    const totais: Record<string, number> = {};
+    variaveis.forEach(g => {
+      if (g.formaPagamento === 'credito' && g.banco) {
+        totais[g.banco] = (totais[g.banco] || 0) + g.valor;
+      }
+    });
+    fixos.forEach(f => {
+      if (f.formaPagamento === 'credito' && f.banco && f.ativo) {
+        totais[f.banco] = (totais[f.banco] || 0) + f.valor;
+      }
+    });
+    return Object.entries(totais)
+      .map(([banco, total]) => ({ banco, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [variaveis, fixos]);
+
+  const totalFatura = faturasPorBanco.reduce((s, f) => s + f.total, 0);
 
   const gastosPorCategoria = useMemo(
     () => calcularGastosPorCategoria(fixos, variaveis, pix),
@@ -130,6 +149,52 @@ export default function Dashboard({ config, fixos, variaveis, pix, caixinhaLanca
           <p className="text-2xl font-bold text-orange-400">{formatCurrency(totalFixos)}</p>
         </div>
       </div>
+
+      {/* Fatura do Cartao por Banco */}
+      {faturasPorBanco.length > 0 && (
+        <div className="bg-surface rounded-xl border border-purple-500/30 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <CreditCard size={20} className="text-purple-400" />
+              <h3 className="font-semibold text-white">Fatura do Cartao</h3>
+            </div>
+            <span className="text-purple-300 font-bold text-lg">{formatCurrency(totalFatura)}</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {faturasPorBanco.map(({ banco, total }) => {
+              const bancoInfo = BANCOS.find(b => b.nome.toLowerCase() === banco.toLowerCase());
+              const cor = bancoInfo?.cor || '#a855f7';
+              const corTexto = bancoInfo?.corTexto || '#fff';
+              const pct = totalFatura > 0 ? (total / totalFatura) * 100 : 0;
+              return (
+                <div
+                  key={banco}
+                  className="rounded-xl p-4 flex flex-col gap-2"
+                  style={{ background: `${cor}18`, border: `1px solid ${cor}40` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: cor, color: corTexto }}
+                    >
+                      {bancoInfo?.sigla || banco}
+                    </span>
+                    <CreditCard size={14} style={{ color: cor }} />
+                  </div>
+                  <p className="text-white font-bold text-lg leading-tight">{formatCurrency(total)}</p>
+                  <div className="w-full h-1.5 bg-surface-lighter rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: cor }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500">{pct.toFixed(1)}% da fatura total</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="bg-surface rounded-xl border border-border p-5">
